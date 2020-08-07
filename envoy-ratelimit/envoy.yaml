@@ -1,0 +1,100 @@
+static_resources:
+  listeners:
+    - address:
+        socket_address:
+          protocol: "TCP"
+          address: "0.0.0.0"
+          port_value: 8080
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: backend
+                      domains:
+                        - "*"
+                      rate_limits:
+                        - actions:
+                            dynamic_metadata:
+                              descriptor_key: "operation"
+                              metadata_key:
+                                key: "envoy.filters.http.ratelimit"
+                                path:
+                                  - key: "descriptor"
+                                  - key: "operation"
+                        - actions:
+                            request_headers:
+                              header_name: "x-auth-client"
+                              descriptor_key: "client"
+                      routes:
+                        - name: example-operation-1
+                          match:
+                            prefix: "/anything/shouldRateLimit"
+                          metadata:
+                            filter_metadata:
+                              envoy.filters.http.ratelimit:
+                                descriptor:
+                                  operation: "operation-1"
+                          route:
+                            cluster: "httpbin"
+                            include_vh_rate_limits: true
+                        - name: default-route
+                          match:
+                            prefix: "/"
+                          route:
+                            cluster: httpbin
+                            include_vh_rate_limits: false
+                http_filters:
+                  - name: envoy.filters.http.ratelimit
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit
+                      domain: "*"
+                      failure_mode_deny: false
+                      rate_limit_service:
+                        grpc_service:
+                          envoy_grpc:
+                            cluster_name: rate-limit-mock
+                          timeout: "0.25s"
+                        transport_api_version: V3
+                  - name: envoy.filters.http.router
+                    typed_config: {}
+  clusters:
+    - name: rate-limit-mock
+      type: "LOGICAL_DNS"
+      connect_timeout: "0.25s"
+      dns_lookup_family: "V4_ONLY"
+      http2_protocol_options: {}
+      load_assignment:
+        cluster_name: rate-limit-mock
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: rate-limit-mock
+                      port_value: 8091
+    - name: httpbin
+      connect_timeout: "0.25s"
+      common_http_protocol_options:
+        idle_timeout: "4s"
+      type: "LOGICAL_DNS"
+      dns_lookup_family: "V4_ONLY"
+      load_assignment:
+        cluster_name: httpbin
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: httpbin
+                      port_value: 80
+admin:
+  access_log_path: "/dev/null"
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 8001
