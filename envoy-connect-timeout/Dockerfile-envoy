@@ -1,0 +1,6 @@
+ARG ENVOY_VERSION
+FROM envoyproxy/envoy:${ENVOY_VERSION:-latest}
+
+RUN apt-get update && apt-get -q install -y \
+    curl
+CMD /usr/local/bin/envoy -c /etc/envoy.yaml -l debug
