@@ -75,6 +75,7 @@ static_resources:
                           x_request_id: "%REQ(X-REQUEST-ID)%"
                           x_b3_traceid: "%REQ(X-B3-TRACEID)%"
                           upstream_host: "%UPSTREAM_HOST%"
+                          dynamic_metadata: "%DYNAMIC_METADATA(my-filter:status)%"
                     filter:
                       or_filter:
                         filters:
