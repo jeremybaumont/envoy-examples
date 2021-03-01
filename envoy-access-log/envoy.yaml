@@ -9,9 +9,9 @@ static_resources:
         - filters:
             - name: envoy.http_connection_manager
               typed_config:
-                "@type": type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                 codec_type: auto
-                stat_prefix: ingress_http
+                stat_prefix: "ingress_http"
                 route_config:
                   name: local_route
                   virtual_hosts:
@@ -20,10 +20,40 @@ static_resources:
                         - "*"
                       routes:
                         - match:
+                            path: "/status/418"
+                          route:
+                            cluster: httpbin
+                          typed_per_filter_config:
+                            envoy.filters.http.lua:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.LuaPerRoute
+                              name: set-teapot.lua
+                        - match:
                             prefix: "/"
                           route:
                             cluster: httpbin
+                          typed_per_filter_config:
+                            envoy.filters.http.lua:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.LuaPerRoute
+                              name: clean-teapot.lua
                 http_filters:
+                  - name: envoy.filters.http.lua
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+                      inline_code: |
+                        function envoy_on_request(request_handle)
+                          -- do something
+                        end
+                      source_codes:
+                        set-teapot.lua:
+                          inline_string: |
+                            function envoy_on_request(request_handle)
+                             request_handle:streamInfo():dynamicMetadata():set("my-filter", "status", "teapot")
+                            end
+                        clean-teapot.lua:
+                          inline_string: |
+                            function envoy_on_request(request_handle)
+                             request_handle:streamInfo():dynamicMetadata():set("my-filter", "status", "")
+                            end
                   - name: envoy.router
                 access_log:
                   - name: stdout-4xx-5xx
@@ -48,6 +78,14 @@ static_resources:
                     filter:
                       or_filter:
                         filters:
+                          - metadata_filter:
+                              matcher:
+                                filter: "my-filter"
+                                path:
+                                  - key: "status"
+                                value:
+                                  string_match:
+                                    exact: "teapot"
                           - status_code_filter:
                               comparison:
                                 op: GE
