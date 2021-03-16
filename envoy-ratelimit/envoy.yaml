@@ -17,37 +17,29 @@ static_resources:
                     - name: backend
                       domains:
                         - "*"
-                      rate_limits:
-                        - actions:
-                            dynamic_metadata:
-                              descriptor_key: "operation"
-                              metadata_key:
-                                key: "envoy.filters.http.ratelimit"
-                                path:
-                                  - key: "descriptor"
-                                  - key: "operation"
-                        - actions:
-                            request_headers:
-                              header_name: "x-auth-client"
-                              descriptor_key: "client"
                       routes:
-                        - name: example-operation-1
-                          match:
-                            prefix: "/anything/shouldRateLimit"
-                          metadata:
-                            filter_metadata:
-                              envoy.filters.http.ratelimit:
-                                descriptor:
-                                  operation: "operation-1"
+                        - match:
+                            prefix: "/status/429"
                           route:
                             cluster: "httpbin"
-                            include_vh_rate_limits: true
+                            rate_limits:
+                              - actions:
+                                  - request_headers:
+                                      header_name: "client"
+                                      descriptor_key: "client"
+                                  - request_headers:
+                                      header_name: "tenant"
+                                      descriptor_key: "tenant"
+                              - actions:
+                                  - request_headers:
+                                      header_name: "client"
+                                      descriptor_key: "client"
+
                         - name: default-route
                           match:
                             prefix: "/"
                           route:
                             cluster: httpbin
-                            include_vh_rate_limits: false
                 http_filters:
                   - name: envoy.filters.http.ratelimit
                     typed_config:
