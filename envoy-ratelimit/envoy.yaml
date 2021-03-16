@@ -17,29 +17,38 @@ static_resources:
                     - name: backend
                       domains:
                         - "*"
+                      rate_limits:
+                        - actions:
+                            - request_headers:
+                                header_name: "client"
+                                descriptor_key: "client"
+                        - actions:
+                            - request_headers:
+                                header_name: "tenant"
+                                descriptor_key: "tenant"
+                        - actions:
+                            - request_headers:
+                                header_name: "X-Rate-Limit-Scenario-Name"
+                                descriptor_key: "scenario-descriptor"
                       routes:
                         - match:
                             prefix: "/status/429"
                           route:
                             cluster: "httpbin"
-                            rate_limits:
-                              - actions:
-                                  - request_headers:
-                                      header_name: "client"
-                                      descriptor_key: "client"
-                                  - request_headers:
-                                      header_name: "tenant"
-                                      descriptor_key: "tenant"
-                              - actions:
-                                  - request_headers:
-                                      header_name: "client"
-                                      descriptor_key: "client"
+                          typed_per_filter_config:
+                            envoy.filters.http.ratelimit:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimitPerRoute
+                              vh_rate_limits: "INCLUDE"
 
                         - name: default-route
                           match:
                             prefix: "/"
                           route:
                             cluster: httpbin
+                          typed_per_filter_config:
+                            envoy.filters.http.ratelimit:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimitPerRoute
+                              vh_rate_limits: "IGNORE"
                 http_filters:
                   - name: envoy.filters.http.ratelimit
                     typed_config:
