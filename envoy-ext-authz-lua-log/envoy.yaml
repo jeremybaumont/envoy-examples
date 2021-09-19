@@ -1,0 +1,100 @@
+static_resources:
+  listeners:
+    - address:
+        socket_address:
+          protocol: "TCP"
+          address: "0.0.0.0"
+          port_value: 8080
+      filter_chains:
+        - filters:
+            - name: "envoy.http_connection_manager"
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: "ingress_http"
+                stream_idle_timeout: "4010s"
+                common_http_protocol_options:
+                  idle_timeout: "4010s"
+                codec_type: auto
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: backend
+                      domains:
+                        - "*"
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: upstream 
+                http_filters:
+                  - name: "envoy.filters.http.ext_authz"
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+                      grpc_service:
+                        envoy_grpc:
+                          cluster_name: "ingress_auth"
+                        timeout: "5s"
+                      status_on_error:
+                        code: 502
+                      transport_api_version: "V3"
+
+                  - name: envoy.filters.http.lua
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+                      inline_code: |
+                        function envoy_on_request(request_handle)
+                          local headers = request_handle:headers()
+                          request_handle:streamInfo():dynamicMetadata():set("envoy.filters.http.lua", "extauthz.status", headers:get("x-extauthz-status-code") )
+                        end
+
+                        function envoy_on_response(response_handle)
+                          local extauthz_status = response_handle:streamInfo():dynamicMetadata():get("envoy.filters.http.lua")["extauthz.status"]
+                          local resp_status = tostring(response_handle:headers():get(":status"))
+                          if (extauthz_status ~= resp_status and extauthz_status ~= nil and extauthz_status ~= '')
+                          then
+                            response_handle:logInfo("X-extauthz-status-code: " .. extauthz_status .. ", Upstream response status: " .. resp_status)
+                          end
+                        end
+
+                  - name: envoy.router
+  clusters:
+    
+    - name: "ingress_auth"
+      type: "LOGICAL_DNS"
+      dns_lookup_family: "V4_ONLY"
+      typed_extension_protocol_options:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          explicit_http_config:
+            http2_protocol_options: {}
+      load_assignment:
+        cluster_name: ext_authz-grpc-service
+        endpoints:
+        - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: auth-mock 
+                  port_value: 8081
+
+    - name: upstream
+      connect_timeout: "0.25s"
+      common_http_protocol_options:
+        idle_timeout: "60s"
+      type: "LOGICAL_DNS"
+      dns_lookup_family: "V4_ONLY"
+      load_assignment:
+        cluster_name: "service"
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: "httpbin"
+                      port_value: 80 
+admin:
+  access_log_path: "/dev/null"
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 8001
