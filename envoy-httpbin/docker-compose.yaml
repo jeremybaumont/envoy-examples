@@ -1,6 +1,10 @@
 version: "3.7"
 services:
   envoy:
+    security_opt:
+      - seccomp=unconfined
+    cap_add:
+      - SYS_PTRACE
     build:
       context: .
       dockerfile: Dockerfile-envoy
@@ -13,9 +17,11 @@ services:
     expose:
       - "8080"
       - "8001"
+      - "9091"
     ports:
-      - "8080:8080"
+      - "8080:10000"
       - "8001:8001"
+      - "9091:9091"
     depends_on:
       - httpbin
 

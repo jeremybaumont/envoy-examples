@@ -1,6 +1,9 @@
 ARG ENVOY_VERSION
-FROM envoyproxy/envoy:${ENVOY_VERSION:-latest}
+FROM rodeeend/envoy-devel:${ENVOY_VERSION:-latest}
 
 RUN apt-get update && apt-get -q install -y \
+    gdbserver \
+    tcpdump \
+    nmap \
     curl
-CMD /usr/local/bin/envoy -c /etc/envoy.yaml -l debug
+CMD gdbserver :9091 /usr/local/bin/envoy -c /etc/envoy.yaml -l debug
