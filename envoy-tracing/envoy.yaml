@@ -18,6 +18,10 @@ static_resources:
       - name: envoy.filters.network.http_connection_manager
         typed_config:
           "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          request_id_extension:
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.request_id.uuid.v3.UuidRequestIdConfig
+              pack_trace_reason: false
           tracing:
             provider:
               name: envoy.tracers.zipkin
@@ -56,7 +60,7 @@ static_resources:
             address:
               socket_address:
                 address: httpbin 
-                port_value: 80 
+                port_value: 8080 
   - name: zipkin
     type: STRICT_DNS
     lb_policy: ROUND_ROBIN

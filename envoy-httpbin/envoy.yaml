@@ -18,6 +18,7 @@ static_resources:
       - name: envoy.filters.network.http_connection_manager
         typed_config:
           "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          generate_request_id: true
           scheme_header_transformation:
             scheme_to_overwrite: https
           stat_prefix: ingress_http
@@ -48,4 +49,4 @@ static_resources:
             address:
               socket_address:
                 address: httpbin 
-                port_value: 80 
+                port_value: 8080 
