@@ -1,0 +1,45 @@
+version: "3.7"
+services:
+  envoy:
+    security_opt:
+      - seccomp=unconfined
+    cap_add:
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: Dockerfile-envoy
+      args:
+        - ENVOY_VERSION=${ENVOY_VERSION}
+    volumes:
+      - ./envoy.yaml:/etc/envoy.yaml
+    networks:
+      - envoymesh
+    expose:
+      - "8080"
+      - "8001"
+      - "9091"
+    ports:
+      - "8080:10000"
+      - "8001:8001"
+      - "9091:9091"
+    depends_on:
+      - httpbin
+
+  httpbin:
+    image: kennethreitz/httpbin:latest
+    networks:
+      envoymesh:
+        aliases:
+          - httpbin
+
+  zipkin:
+    image: openzipkin/zipkin
+    networks:
+      envoymesh:
+        aliases:
+        - zipkin
+    ports:
+    - "9411:9411"
+
+networks:
+  envoymesh: {}
