@@ -1,0 +1,55 @@
+version: "3.7"
+services:
+  client:
+    image: alpine/curl 
+    entrypoint: /bin/sh
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    networks:
+      envoymesh:
+        aliases:
+          - client 
+  envoy:
+    security_opt:
+      - seccomp=unconfined
+    cap_add:
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: Dockerfile-envoy
+      args:
+        - ENVOY_VERSION=${ENVOY_VERSION}
+    volumes:
+      - ./envoy.yaml:/etc/envoy.yaml
+    networks:
+      - envoymesh
+    expose:
+      - "8080"
+      - "8001"
+      - "9091"
+    ports:
+      - "8080:10000"
+      - "8001:8001"
+      - "9091:9091"
+    depends_on:
+      - server
+    networks:
+      envoymesh:
+        aliases:
+          - envoy 
+
+  tunnel:
+    image: mccutchen/go-httpbin
+    volumes:
+      - /tmp:/tmp
+    environment:
+      - HTTPS_CERT_FILE=/tmp/server.crt 
+      - HTTPS_KEY_FILE=/tmp/server.key
+    networks:
+      envoymesh:
+        aliases:
+          - tunnel
+ 
+
+networks:
+  envoymesh: {}
