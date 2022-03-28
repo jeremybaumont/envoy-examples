@@ -21,6 +21,7 @@ services:
         - ENVOY_VERSION=${ENVOY_VERSION}
     volumes:
       - ./envoy.yaml:/etc/envoy.yaml
+      - /tmp/server.crt:/tmp/ca-certificates.crt
     networks:
       - envoymesh
     expose:
@@ -39,17 +40,14 @@ services:
           - envoy 
 
   tunnel:
-    image: mccutchen/go-httpbin
-    volumes:
-      - /tmp:/tmp
-    environment:
-      - HTTPS_CERT_FILE=/tmp/server.crt 
-      - HTTPS_KEY_FILE=/tmp/server.key
-    networks:
-      envoymesh:
-        aliases:
-          - tunnel
- 
+     image: mendhak/http-https-echo
+     hostname: service-https
+     environment:
+     - HTTP_PORT=0
+     networks:
+       envoymesh:
+         aliases:
+           - tunnel
 
 networks:
   envoymesh: {}
