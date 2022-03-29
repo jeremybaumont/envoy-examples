@@ -21,7 +21,6 @@ services:
         - ENVOY_VERSION=${ENVOY_VERSION}
     volumes:
       - ./envoy.yaml:/etc/envoy.yaml
-      - /tmp/server.crt:/tmp/ca-certificates.crt
     networks:
       - envoymesh
     expose:
