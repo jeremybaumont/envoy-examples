@@ -1,0 +1,102 @@
+static_resources:
+  listeners:
+    - address:
+        socket_address:
+          protocol: "TCP"
+          address: "0.0.0.0"
+          port_value: 8080
+      filter_chains:
+        - filters:
+            - name: "envoy.http_connection_manager"
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: "ingress_http"
+                stream_idle_timeout: "4010s"
+                common_http_protocol_options:
+                  idle_timeout: "4010s"
+                codec_type: auto
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: backend
+                      domains:
+                        - "*"
+                      retry_policy:
+                        retry_on: "retriable-status-codes"
+                        retriable_status_codes:
+                          - 597
+                        retriable_request_headers:
+                          - name: ":method"
+                            string_match:
+                              safe_regex:
+                                google_re2: {}
+                                regex: "DELETE|GET|HEAD|OPTIONS|PUT|TRACE"
+                        num_retries: 1
+                        per_try_timeout: "0s"
+                        retry_back_off:
+                          base_interval: "0.001s"
+                          max_interval: "0.01s"
+
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: upstream 
+                http_filters:
+                  - name: "envoy.filters.http.ext_authz"
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+                      grpc_service:
+                        envoy_grpc:
+                          cluster_name: "ingress_auth"
+                        timeout: "5s"
+                      status_on_error:
+                        code: 502
+                      transport_api_version: "V3"
+                      clear_route_cache: true
+                  
+                  - name: "envoy.filters.http.router"
+                    typed_config:
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+
+  clusters:
+    
+    - name: "ingress_auth"
+      type: "LOGICAL_DNS"
+      dns_lookup_family: "V4_ONLY"
+      typed_extension_protocol_options:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          explicit_http_config:
+            http2_protocol_options: {}
+      load_assignment:
+        cluster_name: ext_authz-grpc-service
+        endpoints:
+        - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: auth-mock 
+                  port_value: 8081
+
+    - name: upstream
+      connect_timeout: "0.25s"
+      common_http_protocol_options:
+        idle_timeout: "60s"
+      type: "LOGICAL_DNS"
+      dns_lookup_family: "V4_ONLY"
+      load_assignment:
+        cluster_name: "service"
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: "httpbin"
+                      port_value: 80 
+admin:
+  access_log_path: "/dev/null"
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 8001

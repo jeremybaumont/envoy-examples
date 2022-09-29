@@ -1,0 +1,49 @@
+version: "3.7"
+services:
+  envoy:
+    container_name: envoy
+    build:
+      context: .
+      dockerfile: Dockerfile-envoy
+      args:
+        - ENVOY_VERSION=${ENVOY_VERSION}
+    volumes:
+      - ./envoy.yaml:/etc/envoy.yaml
+    networks:
+      - envoymesh
+    expose:
+      - "8080"
+      - "8001"
+    ports:
+      - "8080:8080"
+      - "8001:8001"
+    depends_on:
+      - httpbin
+      - auth-mock
+
+  httpbin:
+    container_name: httpbin
+    image: kennethreitz/httpbin:latest
+    networks:
+      envoymesh:
+        aliases:
+          - httpbin
+
+  auth-mock:
+    build:
+      context: ./auth-mock
+      dockerfile: ./Dockerfile
+    image: alpine:latest
+    container_name: auth-mock
+    command: ["/service-proxy/auth-mock"]
+    environment:
+      AUTH_MOCK_PORT: 8081 
+    networks:
+      envoymesh:
+        aliases:
+          - auth-mock 
+
+
+
+networks:
+  envoymesh: {}
