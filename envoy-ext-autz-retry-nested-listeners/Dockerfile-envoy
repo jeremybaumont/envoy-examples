@@ -1,0 +1,3 @@
+ARG ENVOY_VERSION
+FROM envoyproxy/envoy:${ENVOY_VERSION:-latest}
+CMD /usr/local/bin/envoy -c /etc/envoy.yaml   --component-log-level router:trace,grpc:debug,filter:trace,hc:trace,client:debug
