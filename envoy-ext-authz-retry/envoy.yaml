@@ -50,6 +50,11 @@ static_resources:
                         envoy_grpc:
                           cluster_name: "ingress_auth"
                         timeout: "5s"
+                        initial_metadata:
+                        - key: "x-envoy-retry-on"
+                          value: "retriable-status-codes"
+                        - key: "x-envoy-retriable-status-codes"
+                          value: "597"
                       status_on_error:
                         code: 502
                       transport_api_version: "V3"
@@ -60,7 +65,22 @@ static_resources:
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
 
   clusters:
-    
+    - name: upstream
+      connect_timeout: "0.25s"
+      common_http_protocol_options:
+        idle_timeout: "60s"
+      type: "LOGICAL_DNS"
+      dns_lookup_family: "V4_ONLY"
+      load_assignment:
+        cluster_name: "service"
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: "httpbin"
+                      port_value: 80 
+
     - name: "ingress_auth"
       type: "LOGICAL_DNS"
       dns_lookup_family: "V4_ONLY"
@@ -79,21 +99,6 @@ static_resources:
                   address: auth-mock 
                   port_value: 8081
 
-    - name: upstream
-      connect_timeout: "0.25s"
-      common_http_protocol_options:
-        idle_timeout: "60s"
-      type: "LOGICAL_DNS"
-      dns_lookup_family: "V4_ONLY"
-      load_assignment:
-        cluster_name: "service"
-        endpoints:
-          - lb_endpoints:
-              - endpoint:
-                  address:
-                    socket_address:
-                      address: "httpbin"
-                      port_value: 80 
 admin:
   access_log_path: "/dev/null"
   address:

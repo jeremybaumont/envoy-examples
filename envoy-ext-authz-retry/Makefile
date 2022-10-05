@@ -9,6 +9,11 @@ run: ### Start the docker-compose containers
 
 .PHONY: test-retry
 test-retry: ### Simulate a client request with retry 
+	curl -X POST localhost:8001/reset_counters
+	curl -s localhost:8001/stats | grep -e 'cluster.ingress_auth.upstream_rq_total' -e 'cluster.upstream.upstream_rq_total' -e 'cluster.upstream.upstream_rq_retry:' -e 'cluster.virtual_listener.upstream_rq_retry:'  -e 'cluster.virtual_listener.upstream_rq_total'
+	curl -v  --header "x-envoy-retry-on: retriable-status-codes" --header "x-envoy-retriable-status-codes: 597" --header "x-auth-scenario-name: allow-and-add-header" --request GET http://localhost:8080/status/597
+	curl -s localhost:8001/stats | grep -e 'cluster.ingress_auth.upstream_rq_total' -e 'cluster.upstream.upstream_rq_total' -e 'cluster.upstream.upstream_rq_retry:' -e 'cluster.virtual_listener.upstream_rq_retry:'  -e 'cluster.virtual_listener.upstream_rq_total'
+
 
 # To start a network capture session, you will need first to run `make start-wireshark`
 # that will listen on port 9999 for packets captures and start wireshark

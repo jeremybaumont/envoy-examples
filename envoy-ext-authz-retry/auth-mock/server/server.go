@@ -76,13 +76,17 @@ func NewAuthorizationServer() *AuthorizationServer {
 }
 
 func (server *AuthorizationServer) Check(_ context.Context, req *envoy_service_auth_v3.CheckRequest) (*envoy_service_auth_v3.CheckResponse, error) {
+	fmt.Printf("%+v\n", req)
 	scenarioName := getScenarioName(req)
 	scenarioGenerator, found := server.scenarios[scenarioName]
 	if !found {
 		return nil, fmt.Errorf("unknown scenario name %q", scenarioName)
 	}
+	resp, err := scenarioGenerator(req)
 
-	return scenarioGenerator(req)
+	fmt.Printf("%+v %+v\n", resp, err)
+
+	return resp, err
 }
 
 func getScenarioName(req *envoy_service_auth_v3.CheckRequest) string {
